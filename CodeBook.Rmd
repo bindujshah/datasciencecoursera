@@ -1,0 +1,173 @@
+---
+title: "CodeBook for Getting and Cleaning Data Project"
+author: "Bindu Shah"
+date: "January 11, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document to support the project for teh course:
+Getting and Cleaning Dta
+
+##INSTRUCTIONS FOR THIS PROJECT:
+The purpose of this project is to demonstrate your ability to collect, work with, and clean a data set. The goal is to prepare tidy data that can be used for later analysis. You will be graded by your peers on a series of yes/no questions related to the project. You will be required to submit: 1) a tidy data set as described below, 2) a link to a Github repository with your script for performing the analysis, and 3) a code book that describes the variables, the data, and any transformations or work that you performed to clean up the data called CodeBook.md. You should also include a README.md in the repo with your scripts. This repo explains how all of the scripts work and how they are connected.
+
+One of the most exciting areas in all of data science right now is wearable computing - see for example this article . Companies like Fitbit, Nike, and Jawbone Up are racing to develop the most advanced algorithms to attract new users. The data linked to from the course website represent data collected from the accelerometers from the Samsung Galaxy S smartphone. A full description is available at the site where the data was obtained:
+
+http://archive.ics.uci.edu/ml/datasets/Human+Activity+Recognition+Using+Smartphones
+
+Here are the data for the project:
+
+https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip
+
+You should create one R script called run_analysis.R that does the following.
+
+1. Merges the training and the test sets to create one data set.
+2.Extracts only the measurements on the mean and standard deviation for each measurement.
+3.Uses descriptive activity names to name the activities in the data set
+4. Appropriately labels the data set with descriptive variable names.
+5. From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
+
+
+
+## DATA
+
+Data Set Information:
+
+The experiments have been carried out with a group of 30 volunteers within an age bracket of 19-48 years. Each person performed six activities (WALKING, WALKING_UPSTAIRS, WALKING_DOWNSTAIRS, SITTING, STANDING, LAYING) wearing a smartphone (Samsung Galaxy S II) on the waist. Using its embedded accelerometer and gyroscope, we captured 3-axial linear acceleration and 3-axial angular velocity at a constant rate of 50Hz. The experiments have been video-recorded to label the data manually. The obtained dataset has been randomly partitioned into two sets, where 70% of the volunteers was selected for generating the training data and 30% the test data. 
+
+
+There are two sets of metric data - TEST and TRAIN
+
+The files used for the assignment are:
+
+activity_labels.txt containing a lookup of activity label for a given activity id
+
+features.txt containing column names for the metric files
+
+x_train containing metrics (without headers or subjects or actvity information)
+y_train containing the activity associated with the metric record
+subject_train containing the subject associated with the metric record
+
+x_test containing metrics (without headers or subjects or actvity information)
+y_test containing the activity associated with the metric record
+subject_test containing the subject associated with the metric record
+
+##SYNOPISIS Of run_analysis.R script 
+- downloads the zipped data set and unzips the files.
+- reads the files
+
+-for both the Test and Train data sets, 
+    1. Column headers are added to the metrics files.
+    2. Subject ID and Activity ID is associated with each metric record 
+    3. Activity labels are added 
+
+-the Test and Train data sets are combined. 
+NOTE that an addiitonal column called "source" is added to identify whether the metric record came from the TEST or TRAIN data set
+
+- a subsetis created with Only MEAN and STD metrics along with Subject ID and Activity ID are preserved.
+
+- Activity labels are added to this data set
+
+- A new data set is created with the average MEAN and STD metrics
+- This data set is then written to a file called "TidyDataSet.txt" so it can be used independently.
+
+## Download data files
+```{r Download Data Files}
+url<-"https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+
+download.file(url, destfile="smartphoneproj.zip")
+unzip(zipfile="smartphoneproj.zip")
+```
+
+## Read data files
+```{r Necessary Read Data Files}
+features<- read.table("features.txt")
+dim(features)
+
+activity_labels<-read.table("activity_labels.txt")
+
+x_train <- read.table("train/X_train.txt")
+y_train <- read.table("train/y_train.txt")
+subject_train <- read.table("train/subject_train.txt")
+
+x_test <- read.table("test/X_test.txt")
+y_test <- read.table("test/y_test.txt")
+subject_test <- read.table("test/subject_test.txt")
+```
+
+## Task 4. Appropriately label the data sets with descriptive variable names
+## for Activity
+```{r}
+colnames(activity_labels) <- c("activity_id", "activity")
+
+## For Test data
+colnames(x_test)<-features[,2]
+colnames(y_test)<-"activity_id"
+colnames(subject_test)<-"subject_id"
+
+## for Train data
+colnames(x_train)<-features[,2]
+colnames(y_train)<-"activity_id"
+colnames(subject_train)<-"subject_id"
+```
+
+
+## Task 1. Merge the test and training data sets
+
+```{r}
+## merge Subject, Activity with Measures for Test Data
+test<-cbind(subject_test, y_test, x_test)
+## Column 'Source" preserves information about where data set was obtained
+test$source<-"test"
+
+## merge columns Subject, Activity with Measures for Train Data
+train<-cbind(subject_train, y_train, x_train)
+## Column 'Source" preserves information about where data set was obtained
+train$source<-"train"
+
+## Merge rows from test and train data sets
+test_train <- rbind(test, train)
+
+##Check if merge worked
+dim(test)
+dim(train)
+dim(test_train)
+```
+
+## Task 2. Extract only "mean" and Std" measurements
+```{r}
+mean_std_cols<-(grepl("subject_id", colnames(test_train)) | 
+                grepl("activity_id", colnames(test_train)) | 
+                grepl("mean", colnames(test_train)) | 
+                grepl("std", colnames(test_train))   )
+
+
+summary(mean_std_cols)
+
+test_train_mean_std<-test_train[,mean_std_cols == TRUE]
+```
+
+## Task 3. Use descriptive activity names
+```{r}
+test_train_mean_std_with_activity<-
+                   merge(test_train_mean_std, 
+                         activity_labels, 
+                         by= 'activity_id', 
+                         all.X=TRUE)
+```
+
+## Task 5. Create an independent tidy dataset  the average of each variable for each activity and each subject.
+```{r}
+tidydataset<- aggregate(. ~ subject_id + activity, data =test_train_mean_std_with_activity, mean)
+dim(tidydataset)
+str(tidydataset)
+
+write.table(tidydataset, "TidyDataSet.txt", sep="\t", row.names=FALSE)
+```
+
